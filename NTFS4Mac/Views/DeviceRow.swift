@@ -5,6 +5,7 @@ struct DeviceRow: View {
     let onMount: () -> Void
     let onUnmount: () -> Void
     let onRestore: () -> Void
+    let onOpenInFinder: () -> Void
 
     var body: some View {
         HStack(spacing: 16) {
@@ -24,39 +25,36 @@ struct DeviceRow: View {
                     Text(device.size)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if device.mountPoint != nil {
-                        Text(device.statusText)
-                            .font(.caption)
-                            .foregroundStyle(statusColor)
-                    }
                 }
             }
 
             Spacer()
 
-            // Action buttons
-            HStack(spacing: 8) {
-                if !device.isMounted {
-                    Button("Mount RW") { onMount() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.accentColor)
-                        .controlSize(.small)
-                } else if device.isReadWrite {
-                    Button("Restore RO") { onRestore() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    Button("Unmount") { onUnmount() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                } else {
-                    Text("Read-Only")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                    Button("Mount RW") { onMount() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.accentColor)
-                        .controlSize(.small)
+            // Status badge
+            Text(statusBadge)
+                .font(.system(.caption, design: .monospaced))
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(statusColor))
+
+            // Open in Finder button (if mounted)
+            if device.isMounted {
+                Button(action: onOpenInFinder) {
+                    Image(systemName: "folder")
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Open in Finder")
+            }
+
+            // Action button (only if not RW)
+            if !device.isReadWrite {
+                Button("Mount RW") { onMount() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.accentColor)
+                    .controlSize(.small)
             }
         }
         .padding(.vertical, 8)
@@ -67,5 +65,11 @@ struct DeviceRow: View {
     private var statusColor: Color {
         if !device.isMounted { return .gray }
         return device.isReadWrite ? .green : .orange
+    }
+
+    private var statusBadge: String {
+        if device.isReadWrite { return "RW" }
+        if device.isMounted { return "RO" }
+        return "--"
     }
 }

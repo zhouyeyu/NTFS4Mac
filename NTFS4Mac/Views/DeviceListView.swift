@@ -45,7 +45,8 @@ struct DeviceListView: View {
                                 device: device,
                                 onMount: { operate(.mount(device)) },
                                 onUnmount: { operate(.unmount(device)) },
-                                onRestore: { operate(.restore(device)) }
+                                onRestore: { operate(.restore(device)) },
+                                onOpenInFinder: { openInFinder(device) }
                             )
                         }
                     }
@@ -89,6 +90,13 @@ struct DeviceListView: View {
         case mount(NTFSDevice)
         case unmount(NTFSDevice)
         case restore(NTFSDevice)
+    }
+
+    private func openInFinder(_ device: NTFSDevice) {
+        if let mountPoint = device.mountPoint {
+            let url = URL(fileURLWithPath: mountPoint)
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+        }
     }
 
     private func operate(_ op: Operation) {

@@ -111,19 +111,38 @@ final class DeviceService {
             return nil
         }
 
-        let mountOutput = try? await Shell.run("/bin/mount")
-        let isRW = mountOutput?.contains("ntfs-3g") == true && mountOutput?.contains(partID) == true
-        let isMounted = mountOutput?.contains(partID) == true
+        let volumeName = info["volumeName"] ?? partID
+        let mountOutput = try? await Shell.run("/sbin/mount")
+
+        // Check if mounted via fuse-t (read-write)
+        let isFuseMount = mountOutput?.contains("fuse-t:/\(volumeName)") == true
+
+        // Check if mounted via ntfs-3g (read-write)
+        let isNtfs3gMount = mountOutput?.contains("ntfs-3g") == true && mountOutput?.contains(partID) == true
+
+        let isRW = isFuseMount || isNtfs3gMount
+
+        // Check if mounted at all (including macOS native read-only mount)
+        let isMacOSMount = mountOutput?.contains(partID) == true && mountOutput?.contains("ntfs") == true
+        let isMounted = isRW || isMacOSMount
+
+        // Determine actual mount point
+        var mountPoint: String? = nil
+        if isFuseMount {
+            mountPoint = "/Volumes/\(volumeName)"
+        } else if let mp = info["mountPoint"], mp != "Not mounted" {
+            mountPoint = mp
+        }
 
         return NTFSDevice(
             id: partID,
             diskNode: "/dev/\(partID)",
-            volumeName: info["volumeName"] ?? partID,
+            volumeName: volumeName,
             fileSystem: info["fsType"] ?? "NTFS",
             size: info["diskSize"] ?? "Unknown",
             usedSpace: info["usedSpace"] ?? "",
             availableSpace: info["freeSpace"] ?? "",
-            mountPoint: info["mountPoint"],
+            mountPoint: mountPoint,
             isReadWrite: isRW,
             isMounted: isMounted
         )

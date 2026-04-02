@@ -37,27 +37,21 @@ final class MountService: Sendable {
             throw MountError.ntfs3gNotFound
         }
 
+        let mountPath = "/Volumes/\(device.displayName)"
+
         // Unmount existing macOS read-only mount
         if device.isMounted && !device.isReadWrite {
             _ = try? await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
             try await Task.sleep(nanoseconds: 500_000_000)
         }
 
-        // Ensure mount point exists
-        let mountPath = "/Volumes/\(device.displayName)"
-        try FileManager.default.createDirectory(atPath: mountPath, withIntermediateDirectories: true)
+        // Ensure mount point exists (requires admin privileges for /Volumes)
+        if !FileManager.default.fileExists(atPath: mountPath) {
+            _ = try await Shell.runWithSudo("/bin/mkdir", arguments: ["-p", mountPath])
+        }
 
         // Mount via ntfs-3g
-        let args = [
-            ntfs3gPath,
-            device.diskNode,
-            mountPath,
-            "-o", "auto_xattr",
-            "-o", "volname=\(device.displayName)",
-            "-o", "local"
-        ]
-
-        let result = try await Shell.runWithSudo("/usr/bin/sudo", arguments: args)
+        let result = try await Shell.runWithSudo(ntfs3gPath, arguments: [device.diskNode, mountPath, "-o", "auto_xattr", "-o", "volname=\(device.displayName)", "-o", "local"])
 
         if result.exitCode != 0 {
             if result.exitCode == 124 || result.exitCode == 137 {

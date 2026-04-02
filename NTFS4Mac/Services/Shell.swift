@@ -20,12 +20,33 @@ enum Shell {
     }
 
     static func runWithSudo(_ command: String, arguments: [String]) async throws -> (stdout: String, exitCode: Int32) {
+        // Build the full command string with proper shell escaping
+        var parts = [command]
+        for arg in arguments {
+            // Simple escaping: if arg contains spaces or special chars, quote it
+            if arg.contains(" ") || arg.contains("'") || arg.contains("\"") || arg.contains("$") {
+                let escaped = arg
+                    .replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "\"", with: "\\\"")
+                parts.append("\"\(escaped)\"")
+            } else {
+                parts.append(arg)
+            }
+        }
+        let fullCommand = parts.joined(separator: " ")
+
+        // Escape the command for AppleScript string
+        let escapedForAppleScript = fullCommand.replacingOccurrences(of: "\"", with: "\\\"")
+
+        // Use osascript to prompt for admin privileges in GUI
+        let script = "do shell script \"\(escapedForAppleScript)\" with administrator privileges"
+
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
-        process.arguments = [command] + arguments
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
@@ -39,6 +60,6 @@ enum Shell {
     }
 
     static func runDiskutil(_ arguments: [String]) async throws -> String {
-        try await run("/usr/bin/diskutil", arguments: arguments)
+        try await run("/usr/sbin/diskutil", arguments: arguments)
     }
 }

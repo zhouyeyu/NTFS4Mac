@@ -6,18 +6,19 @@ No Electron. No bloat. Native macOS app, ~400KB.
 
 Built with Swift 6.2 on macOS 26 SDK, deployment target macOS 14 (Sonoma).
 
+![Screenshot](assets/NTFS.png)
+
 ## Features
 
 - **One-click read-write mount** - Remount NTFS volumes via ntfs-3g with a single click
 - **Auto device detection** - File system watcher + polling detects new drives in real time
-- **Restore read-only** - Switch back to macOS native read-only mount anytime
-- **Safe unmount & eject** - Properly unmount or eject with ntfs-3g cleanup
+- **Open in Finder** - Quick access to mounted volumes
 - **Native macOS feel** - SwiftUI, dark mode, minimal UI
 - **CLI included** - Full-featured command-line tool for scripts and automation
 
 ## How It Works
 
-macOS natively mounts NTFS volumes as read-only. This tool remounts them in read-write mode using the [ntfs-3g](https://github.com/tuxera/ntfs-3g) driver via [macFUSE](https://macfuse.io/).
+macOS natively mounts NTFS volumes as read-only. This tool remounts them in read-write mode using the [ntfs-3g](https://github.com/tuxera/ntfs-3g) driver via [fuse-t](https://github.com/macos-fuse-t/fuse-t).
 
 Under the hood, it executes three system commands:
 
@@ -47,9 +48,24 @@ That's it. No magic, no proprietary drivers.
 | Dependency | Purpose | Install |
 |---|---|---|
 | **macOS 14+** | Required | System Settings > Software Update |
-| **macFUSE 5.x** | File system framework | `brew install --cask macfuse` (restart required) |
+| **fuse-t** | File system framework (user-space FUSE) | Download from [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) |
 | **ntfs-3g** | NTFS read-write driver | `brew tap gromgit/fuse && brew install ntfs-3g-mac` |
 | **fswatch** *(optional)* | Instant device detection | `brew install fswatch` |
+
+### Install fuse-t
+
+1. Download `fuse-t-macos-installer-X.X.X.pkg` from [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases)
+2. Double-click to install
+3. Grant **Full Disk Access** to `fuse-t.app` in System Settings > Privacy & Security
+
+### Link fuse-t library
+
+After installing fuse-t, link the library for ntfs-3g:
+
+```bash
+sudo mv /usr/local/lib/libfuse.2.dylib /usr/local/lib/libfuse.2.dylib.bak
+sudo ln -sf libfuse-t.dylib /usr/local/lib/libfuse.2.dylib
+```
 
 ## Install
 
@@ -78,6 +94,12 @@ make install
 ### GUI
 
 Launch `NTFS4Mac.app`. Insert an NTFS drive. Click **Mount RW**.
+
+- **RW** (green) = Read-write mode via fuse-t
+- **RO** (orange) = Read-only mode (macOS native)
+- **--** (gray) = Not mounted
+
+Click the folder icon to open the volume in Finder.
 
 ### CLI
 
@@ -127,23 +149,10 @@ NTFS4Mac/
 └── Makefile                     # CLI install/uninstall
 ```
 
-## Comparison
-
-| | NTFS4Mac | Free-NTFS-for-Mac | Mounty |
-|---|---|---|---|
-| **Framework** | SwiftUI (native) | Electron | Native |
-| **App Size** | ~400 KB | ~150 MB | ~5 MB |
-| **Memory** | ~20 MB | ~200 MB | ~30 MB |
-| **macOS 26** | Supported | Not yet | Supported (v2.4) |
-| **Device Monitoring** | FSEvents + polling | fswatch + polling | Polling only |
-| **CLI** | Included | Separate scripts | No |
-| **Open Source** | MIT | MIT | GPL-3.0 |
-
 ## Known Issues
 
 - **Windows Fast Startup**: If a drive was hibernated in Windows, ntfs-3g may fail to mount. Fix: fully shut down Windows (not sleep) before connecting the drive.
 - **First launch on macOS**: You may need to right-click > Open the app on first launch, since it's not signed.
-- **macFUSE on macOS 26**: macFUSE 5.x supports the new FSKit backend on macOS 26, so no recovery mode reboot is needed. However, you still need to allow the system extension in System Settings.
 
 ## Requirements for Distribution
 
@@ -156,4 +165,24 @@ To distribute as a signed and notarized app:
 
 ## License
 
-[MIT](LICENSE)
+MIT License
+
+Copyright (c) 2026 zhouyeyu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
