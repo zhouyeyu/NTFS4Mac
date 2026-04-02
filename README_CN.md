@@ -1,12 +1,10 @@
 # NTFS4Mac
 
-一款免费、轻量的 macOS NTFS 读写工具。使用 SwiftUI 构建，支持 macOS 14+ (Sonoma, Sequoia, Tahoe)。
+一款轻量的 macOS NTFS 读写工具。使用 SwiftUI 构建，支持 macOS 14+ (Sonoma, Sequoia, Tahoe)。
 
-无 Electron，无臃肿。原生 macOS 应用，仅 ~400KB。
-
-使用 Swift 6.2 构建，基于 macOS 26 SDK，最低支持 macOS 14 (Sonoma)。
-
-[English](README.md) | 简体中文
+<p align="center">
+<a href="README.md">English</a> | 简体中文
+</p>
 
 ![截图](assets/NTFS.png)
 
@@ -22,30 +20,17 @@
 
 macOS 原生以只读模式挂载 NTFS 卷。本工具使用 [ntfs-3g](https://github.com/tuxera/ntfs-3g) 驱动通过 [fuse-t](https://github.com/macos-fuse-t/fuse-t) 将其重新挂载为读写模式。
 
-底层执行三个系统命令：
-
-```bash
-# 1. 卸载 macOS 只读挂载
-sudo umount -f /dev/diskXsY
-
-# 2. 通过 ntfs-3g 以读写模式重新挂载
-sudo ntfs-3g /dev/diskXsY /Volumes/NAME -o auto_xattr -o local
-
-# 3. 恢复只读模式（可选）
-sudo umount -f /dev/diskXsY && diskutil mount /dev/diskXsY
-```
-
-就这么简单。没有魔法，没有专有驱动。
-
 ## 系统要求
 
 | 操作系统 | 状态 |
 |---|---|
-| **macOS 26 (Tahoe)** | 已测试验证 |
+| **macOS 26 (Tahoe)** | 已测试 |
 | **macOS 15 (Sequoia)** | 兼容（未测试）|
 | **macOS 14 (Sonoma)** | 兼容（未测试）|
 
-## 一键安装
+## 安装
+
+### 一键安装
 
 在终端运行以下命令，自动安装所有依赖：
 
@@ -53,17 +38,15 @@ sudo umount -f /dev/diskXsY && diskutil mount /dev/diskXsY
 curl -fsSL https://raw.githubusercontent.com/zhouyeyu/NTFS4Mac/main/setup.sh | bash
 ```
 
-或手动安装：
-
-### 依赖项
+### 手动安装
 
 | 依赖 | 用途 | 安装方式 |
 |---|---|---|
 | **macOS 14+** | 必需 | 系统设置 > 软件更新 |
-| **fuse-t** | 文件系统框架（用户空间 FUSE）| 从 [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) 下载 |
+| **fuse-t** | 文件系统框架 | 从 [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) 下载 |
 | **ntfs-3g** | NTFS 读写驱动 | `brew tap gromgit/fuse && brew install ntfs-3g-mac` |
 
-### 手动安装 fuse-t
+### 安装 fuse-t
 
 1. 从 [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) 下载 `fuse-t-macos-installer-X.X.X.pkg`
 2. 双击安装
@@ -78,13 +61,11 @@ sudo mv /usr/local/lib/libfuse.2.dylib /usr/local/lib/libfuse.2.dylib.bak
 sudo ln -sf libfuse-t.dylib /usr/local/lib/libfuse.2.dylib
 ```
 
-## 安装应用
-
-### 下载安装
+### 安装应用
 
 从 [Releases](../../releases) 下载最新 DMG，将 `NTFS4Mac.app` 拖到 `/Applications`。
 
-### 从源码构建
+或从源码构建：
 
 ```bash
 git clone https://github.com/zhouyeyu/NTFS4Mac.git
@@ -128,14 +109,9 @@ ntfs-cli deps               # 检查依赖
 ## 构建
 
 ```bash
-# 构建 GUI 应用
-swift build -c release
-
-# 构建并打包 DMG
-bash build-dmg.sh
-
-# 仅构建 CLI
-make install PREFIX=/usr/local
+swift build -c release          # 构建 GUI 应用
+bash build-dmg.sh               # 构建并打包 DMG
+make install PREFIX=/usr/local  # 仅构建 CLI
 ```
 
 ## 项目结构
@@ -146,34 +122,25 @@ NTFS4Mac/
 │   ├── App/NTFS4MacApp.swift
 │   ├── Models/NTFSDevice.swift
 │   ├── Services/
-│   │   ├── Shell.swift          # Shell 命令执行
-│   │   ├── DeviceService.swift  # 设备发现 (diskutil)
-│   │   ├── MountService.swift   # 挂载/卸载/恢复
-│   │   └── DeviceWatcher.swift  # 热插拔检测
+│   │   ├── Shell.swift
+│   │   ├── DeviceService.swift
+│   │   ├── MountService.swift
+│   │   └── DeviceWatcher.swift
 │   └── Views/
 │       ├── DeviceListView.swift
 │       └── DeviceRow.swift
 ├── lib/                         # CLI 脚本
 ├── ntfs-cli.sh                  # CLI 入口
-├── Package.swift                # Swift 包定义
-├── build-dmg.sh                 # DMG 打包脚本
 ├── setup.sh                     # 一键安装脚本
-└── Makefile                     # CLI 安装/卸载
+├── Package.swift
+├── build-dmg.sh
+└── Makefile
 ```
 
 ## 已知问题
 
-- **Windows 快速启动**：如果驱动器在 Windows 中休眠，ntfs-3g 可能无法挂载。解决方法：在连接驱动器前完全关闭 Windows（不是睡眠）。
+- **Windows 快速启动**：如果驱动器在 Windows 中休眠，ntfs-3g 可能无法挂载。在连接驱动器前请完全关闭 Windows。
 - **macOS 首次启动**：首次启动可能需要右键 > 打开，因为应用未签名。
-
-## 分发要求
-
-要以签名和公证的应用分发：
-
-1. Apple Developer 账户（$99/年）
-2. 代码签名：`codesign --sign "Developer ID Application: ..." NTFS4Mac.app`
-3. 公证：`xcrun notarytool submit NTFS4Mac.dmg --apple-id ... --team-id ... --password ...`
-4. Gatekeeper 将允许应用无需右键即可打开
 
 ## 许可证
 

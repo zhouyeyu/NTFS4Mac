@@ -1,12 +1,10 @@
 # NTFS4Mac
 
-A free, lightweight macOS tool for NTFS read/write support. Built with SwiftUI for macOS 14+ (Sonoma, Sequoia, Tahoe).
+A lightweight macOS tool for NTFS read/write support. Built with SwiftUI for macOS 14+ (Sonoma, Sequoia, Tahoe).
 
-No Electron. No bloat. Native macOS app, ~400KB.
-
-Built with Swift 6.2 on macOS 26 SDK, deployment target macOS 14 (Sonoma).
-
-English | [简体中文](README_CN.md)
+<p align="center">
+English | <a href="README_CN.md">简体中文</a>
+</p>
 
 ![Screenshot](assets/NTFS.png)
 
@@ -15,37 +13,22 @@ English | [简体中文](README_CN.md)
 - **One-click read-write mount** - Remount NTFS volumes via ntfs-3g with a single click
 - **Auto device detection** - File system watcher + polling detects new drives in real time
 - **Open in Finder** - Quick access to mounted volumes
-- **Native macOS feel** - SwiftUI, dark mode, minimal UI
+- **Native macOS experience** - SwiftUI, dark mode, minimal UI
 - **CLI included** - Full-featured command-line tool for scripts and automation
 
 ## How It Works
 
 macOS natively mounts NTFS volumes as read-only. This tool remounts them in read-write mode using the [ntfs-3g](https://github.com/tuxera/ntfs-3g) driver via [fuse-t](https://github.com/macos-fuse-t/fuse-t).
 
-Under the hood, it executes three system commands:
-
-```bash
-# 1. Unmount macOS read-only mount
-sudo umount -f /dev/diskXsY
-
-# 2. Remount as read-write via ntfs-3g
-sudo ntfs-3g /dev/diskXsY /Volumes/NAME -o auto_xattr -o local
-
-# 3. Restore read-only (optional)
-sudo umount -f /dev/diskXsY && diskutil mount /dev/diskXsY
-```
-
-That's it. No magic, no proprietary drivers.
-
 ## Requirements
 
 | OS | Status |
 |---|---|
-| **macOS 26 (Tahoe)** | Tested & verified |
+| **macOS 26 (Tahoe)** | Tested |
 | **macOS 15 (Sequoia)** | Compatible (untested) |
 | **macOS 14 (Sonoma)** | Compatible (untested) |
 
-## Prerequisites
+## Installation
 
 ### One-Click Setup
 
@@ -60,9 +43,8 @@ curl -fsSL https://raw.githubusercontent.com/zhouyeyu/NTFS4Mac/main/setup.sh | b
 | Dependency | Purpose | Install |
 |---|---|---|
 | **macOS 14+** | Required | System Settings > Software Update |
-| **fuse-t** | File system framework (user-space FUSE) | Download from [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) |
+| **fuse-t** | File system framework | Download from [fuse-t releases](https://github.com/macos-fuse-t/fuse-t/releases) |
 | **ntfs-3g** | NTFS read-write driver | `brew tap gromgit/fuse && brew install ntfs-3g-mac` |
-| **fswatch** *(optional)* | Instant device detection | `brew install fswatch` |
 
 ### Install fuse-t
 
@@ -79,24 +61,22 @@ sudo mv /usr/local/lib/libfuse.2.dylib /usr/local/lib/libfuse.2.dylib.bak
 sudo ln -sf libfuse-t.dylib /usr/local/lib/libfuse.2.dylib
 ```
 
-## Install
-
-### GUI App
+### Install Application
 
 Download the latest [DMG from Releases](../../releases) and drag `NTFS4Mac.app` to `/Applications`.
 
 Or build from source:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/NTFS4Mac.git
+git clone https://github.com/zhouyeyu/NTFS4Mac.git
 cd NTFS4Mac
 bash build-dmg.sh
 ```
 
-### CLI Tool
+### Install CLI Tool
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/NTFS4Mac.git
+git clone https://github.com/zhouyeyu/NTFS4Mac.git
 cd NTFS4Mac
 make install
 ```
@@ -129,14 +109,9 @@ ntfs-cli deps               # Check dependencies
 ## Build
 
 ```bash
-# Build GUI app
-swift build -c release
-
-# Build and package DMG
-bash build-dmg.sh
-
-# Build CLI only
-make install PREFIX=/usr/local
+swift build -c release      # Build GUI app
+bash build-dmg.sh           # Build and package DMG
+make install PREFIX=/usr/local  # Build CLI only
 ```
 
 ## Project Structure
@@ -147,33 +122,25 @@ NTFS4Mac/
 │   ├── App/NTFS4MacApp.swift
 │   ├── Models/NTFSDevice.swift
 │   ├── Services/
-│   │   ├── Shell.swift          # Shell command execution
-│   │   ├── DeviceService.swift  # Device discovery (diskutil)
-│   │   ├── MountService.swift   # Mount/unmount/restore
-│   │   └── DeviceWatcher.swift  # Hot-plug detection
+│   │   ├── Shell.swift
+│   │   ├── DeviceService.swift
+│   │   ├── MountService.swift
+│   │   └── DeviceWatcher.swift
 │   └── Views/
 │       ├── DeviceListView.swift
 │       └── DeviceRow.swift
 ├── lib/                         # CLI scripts
 ├── ntfs-cli.sh                  # CLI entry point
-├── Package.swift                # Swift package definition
-├── build-dmg.sh                 # DMG packaging script
-└── Makefile                     # CLI install/uninstall
+├── setup.sh                     # One-click setup script
+├── Package.swift
+├── build-dmg.sh
+└── Makefile
 ```
 
 ## Known Issues
 
-- **Windows Fast Startup**: If a drive was hibernated in Windows, ntfs-3g may fail to mount. Fix: fully shut down Windows (not sleep) before connecting the drive.
-- **First launch on macOS**: You may need to right-click > Open the app on first launch, since it's not signed.
-
-## Requirements for Distribution
-
-To distribute as a signed and notarized app:
-
-1. Apple Developer account ($99/year)
-2. Code signing: `codesign --sign "Developer ID Application: ..." NTFS4Mac.app`
-3. Notarize: `xcrun notarytool submit NTFS4Mac.dmg --apple-id ... --team-id ... --password ...`
-4. Gatekeeper will then allow the app without the right-click workaround
+- **Windows Fast Startup**: If a drive was hibernated in Windows, ntfs-3g may fail to mount. Fully shut down Windows before connecting the drive.
+- **First launch on macOS**: You may need to right-click > Open the app on first launch since it's not signed.
 
 ## License
 
