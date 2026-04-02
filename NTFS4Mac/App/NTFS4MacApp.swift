@@ -14,7 +14,9 @@ struct NTFS4MacApp: App {
                 .environment(mountService)
                 .onAppear {
                     watcher.onDeviceChange = {
-                        await deviceService.refresh()
+                        Task { @MainActor in
+                            await deviceService.refresh()
+                        }
                     }
                     watcher.start()
                     Task { await deviceService.refresh() }

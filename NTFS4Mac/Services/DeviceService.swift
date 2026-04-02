@@ -27,7 +27,6 @@ final class DeviceService {
                 return
             }
         }
-        // Try `which` synchronously via Process
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
@@ -57,7 +56,11 @@ final class DeviceService {
         defer { isRefreshing = false }
 
         do {
-            let output = try await Shell.run("/usr/sbin/diskutil", arguments: ["list", "external"])
+            // Get mount output once
+            let mountOutput = try await Shell.run("/sbin/mount")
+
+            // Get external disks
+            let output = try await Shell.run("/usr/sbin/diskutil", arguments: ["list", "external", "physical"])
             let diskIDs = parseDiskIDs(from: output)
 
             var found: [NTFSDevice] = []
@@ -66,7 +69,7 @@ final class DeviceService {
                 let partIDs = parsePartitionIDs(from: partitions ?? "")
 
                 for partID in partIDs {
-                    if let device = try? await fetchDeviceInfo(partID) {
+                    if let device = try? await fetchDeviceInfo(partID, mountOutput: mountOutput) {
                         found.append(device)
                     }
                 }
@@ -101,7 +104,7 @@ final class DeviceService {
 
     // MARK: - Fetch single device info
 
-    private func fetchDeviceInfo(_ partID: String) async throws -> NTFSDevice? {
+    private func fetchDeviceInfo(_ partID: String, mountOutput: String) async throws -> NTFSDevice? {
         let output = try await Shell.run("/usr/sbin/diskutil", arguments: ["info", "/dev/\(partID)"])
         let info = parseDiskutilInfo(output)
 
@@ -112,26 +115,62 @@ final class DeviceService {
         }
 
         let volumeName = info["volumeName"] ?? partID
-        let mountOutput = try? await Shell.run("/sbin/mount")
 
-        // Check if mounted via fuse-t (read-write)
-        let isFuseMount = mountOutput?.contains("fuse-t:/\(volumeName)") == true
+        // Check mount status from mount output
+        // fuse-t mount: "fuse-t:/VolumeName on /Volumes/VolumeName (nfs)"
+        // macOS mount: "/dev/diskXsY on /Volumes/VolumeName (ntfs, ...read-only...)"
 
-        // Check if mounted via ntfs-3g (read-write)
-        let isNtfs3gMount = mountOutput?.contains("ntfs-3g") == true && mountOutput?.contains(partID) == true
-
-        let isRW = isFuseMount || isNtfs3gMount
-
-        // Check if mounted at all (including macOS native read-only mount)
-        let isMacOSMount = mountOutput?.contains(partID) == true && mountOutput?.contains("ntfs") == true
-        let isMounted = isRW || isMacOSMount
-
-        // Determine actual mount point
+        var isRW = false
+        var isMounted = false
         var mountPoint: String? = nil
-        if isFuseMount {
-            mountPoint = "/Volumes/\(volumeName)"
-        } else if let mp = info["mountPoint"], mp != "Not mounted" {
-            mountPoint = mp
+
+        for line in mountOutput.components(separatedBy: "\n") {
+            // Check for fuse-t mount (read-write)
+            if line.contains("fuse-t:/\(volumeName)") || line.contains("fuse-t:/\(volumeName) ") {
+                // Extract mount point
+                if let range = line.range(of: " on ") {
+                    let afterOn = line[range.upperBound...]
+                    if let endRange = afterOn.range(of: " (") {
+                        let mp = String(afterOn[..<endRange.lowerBound])
+                        // Verify the mount is actually writable
+                        if FileManager.default.isWritableFile(atPath: mp) {
+                            isRW = true
+                            isMounted = true
+                            mountPoint = mp
+                        } else {
+                            // fuse-t mount exists but not writable - mark as mounted but not RW
+                            isMounted = true
+                            mountPoint = mp
+                        }
+                    }
+                }
+                break
+            }
+
+            // Check for ntfs-3g mount (read-write)
+            if line.contains("ntfs-3g") && line.contains(partID) {
+                isRW = true
+                isMounted = true
+                // Extract mount point
+                if let range = line.range(of: " on ") {
+                    let afterOn = line[range.upperBound...]
+                    if let endRange = afterOn.range(of: " (") {
+                        mountPoint = String(afterOn[..<endRange.lowerBound])
+                    }
+                }
+                break
+            }
+
+            // Check for macOS native mount (read-only)
+            if line.contains(partID) && line.contains("ntfs") {
+                isMounted = true
+                if let range = line.range(of: " on ") {
+                    let afterOn = line[range.upperBound...]
+                    if let endRange = afterOn.range(of: " (") {
+                        mountPoint = String(afterOn[..<endRange.lowerBound])
+                    }
+                }
+            }
         }
 
         return NTFSDevice(
@@ -163,7 +202,6 @@ final class DeviceService {
             case "Mount Point":
                 result["mountPoint"] = (value == "Not mounted") ? nil : value
             case "Disk Size":
-                // Extract human-readable size: "500.1 GB (...)
                 if let parenRange = value.range(of: "(", options: []) {
                     result["diskSize"] = String(value[..<parenRange.lowerBound]).trimmingCharacters(in: .whitespaces)
                 } else {

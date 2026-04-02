@@ -39,24 +39,34 @@ final class MountService: Sendable {
 
         let mountPath = "/Volumes/\(device.displayName)"
 
-        // Unmount existing macOS read-only mount
-        if device.isMounted && !device.isReadWrite {
-            _ = try? await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
+        // Step 1: Unmount any existing mounts for this device
+        // This includes both macOS native and potential duplicate mounts
+        _ = try? await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
 
-        // Ensure mount point exists (requires admin privileges for /Volumes)
-        if !FileManager.default.fileExists(atPath: mountPath) {
-            _ = try await Shell.runWithSudo("/bin/mkdir", arguments: ["-p", mountPath])
-        }
+        // Also try diskutil unmount
+        _ = try? await Shell.run("/usr/sbin/diskutil", arguments: ["unmount", "force", device.diskNode])
 
-        // Mount via ntfs-3g
-        let result = try await Shell.runWithSudo(ntfs3gPath, arguments: [device.diskNode, mountPath, "-o", "auto_xattr", "-o", "volname=\(device.displayName)", "-o", "local"])
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Step 2: Clean up mount point
+        var cleanupArgs = ["-rf", mountPath]
+        _ = try? await Shell.runWithSudo("/bin/rm", arguments: cleanupArgs)
+
+        // Step 3: Create fresh mount point
+        _ = try await Shell.runWithSudo("/bin/mkdir", arguments: ["-p", mountPath])
+
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        // Step 4: Mount via ntfs-3g with fuse-t
+        let result = try await Shell.runWithSudo(ntfs3gPath, arguments: [
+            device.diskNode,
+            mountPath,
+            "-o", "auto_xattr",
+            "-o", "volname=\(device.displayName)",
+            "-o", "local"
+        ])
 
         if result.exitCode != 0 {
-            if result.exitCode == 124 || result.exitCode == 137 {
-                throw MountError.timeout
-            }
             throw MountError.mountFailed(code: result.exitCode)
         }
     }
@@ -64,24 +74,20 @@ final class MountService: Sendable {
     // MARK: - Unmount
 
     func unmount(device: NTFSDevice) async throws {
-        if device.isReadWrite {
-            let result = try await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
-            if result.exitCode != 0 {
-                throw MountError.unmountFailed
-            }
-        } else {
-            _ = try? await Shell.runDiskutil(["unmount", "force", device.diskNode])
+        // Try umount first
+        let result = try await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
+        if result.exitCode != 0 {
+            // Fallback to diskutil
+            _ = try? await Shell.run("/usr/sbin/diskutil", arguments: ["unmount", "force", device.diskNode])
         }
     }
 
     // MARK: - Eject
 
     func eject(device: NTFSDevice) async throws {
-        if device.isReadWrite {
-            _ = try? await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
-            try await Task.sleep(nanoseconds: 500_000_000)
-        }
-        _ = try? await Shell.runDiskutil(["eject", device.diskNode])
+        _ = try? await Shell.runWithSudo("/sbin/umount", arguments: ["-f", device.diskNode])
+        try await Task.sleep(nanoseconds: 500_000_000)
+        _ = try? await Shell.run("/usr/sbin/diskutil", arguments: ["eject", device.diskNode])
     }
 
     // MARK: - Restore read-only
@@ -95,7 +101,7 @@ final class MountService: Sendable {
         try await Task.sleep(nanoseconds: 500_000_000)
 
         // Let macOS auto-remount, or force it
-        _ = try? await Shell.runDiskutil(["mount", device.diskNode])
+        _ = try? await Shell.run("/usr/sbin/diskutil", arguments: ["mount", device.diskNode])
     }
 }
 
