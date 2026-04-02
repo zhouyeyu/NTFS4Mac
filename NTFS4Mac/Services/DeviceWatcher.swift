@@ -8,14 +8,14 @@ final class DeviceWatcher: @unchecked Sendable {
     private var timer: Timer?
     private var source: DispatchSourceFileSystemObject?
     private let interval: TimeInterval = 3.0
-    var onDeviceChange: (() async -> Void)?
+    var onDeviceChange: (@MainActor @Sendable () async -> Void)?
 
     @MainActor
     func start() {
         stop()
 
         // Use FSEvents via DispatchSource for /dev monitoring
-        let devFD = open("/dev", O_EVTONLY)
+        let devFD = Darwin.open("/dev", O_EVTONLY)
         guard devFD >= 0 else {
             // Fallback to polling
             startPolling()
@@ -29,11 +29,11 @@ final class DeviceWatcher: @unchecked Sendable {
             queue: queue
         )
 
-        source?.setEventHandler { [weak self] in
+        let callback = onDeviceChange
+        source?.setEventHandler {
             Task { @MainActor in
-                // Debounce: wait briefly before triggering refresh
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                await self?.onDeviceChange?()
+                await callback?()
             }
         }
 
@@ -47,26 +47,21 @@ final class DeviceWatcher: @unchecked Sendable {
         startPolling()
     }
 
+    @MainActor
     private func startPolling() {
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let callback = onDeviceChange
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             Task { @MainActor in
-                await self?.onDeviceChange?()
+                await callback?()
             }
         }
     }
 
+    @MainActor
     func stop() {
         source?.cancel()
         source = nil
         timer?.invalidate()
         timer = nil
     }
-
-    deinit {
-        stop()
-    }
-}
-
-private func open(_ path: String, _ flags: Int32) -> Int32 {
-    return Darwin.open(path, flags)
 }
