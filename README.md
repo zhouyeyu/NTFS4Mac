@@ -139,7 +139,6 @@ NTFS4Mac/
 
 ## Known Issues
 
-- **Windows Fast Startup**: If a drive was hibernated in Windows, ntfs-3g may fail to mount. Fully shut down Windows before connecting the drive.
 - **First launch on macOS**: You may need to right-click > Open the app on first launch since it's not signed.
 
 ## License
