@@ -6,6 +6,8 @@ No Electron. No bloat. Native macOS app, ~400KB.
 
 Built with Swift 6.2 on macOS 26 SDK, deployment target macOS 14 (Sonoma).
 
+English | [简体中文](README_CN.md)
+
 ![Screenshot](assets/NTFS.png)
 
 ## Features
@@ -44,6 +46,16 @@ That's it. No magic, no proprietary drivers.
 | **macOS 14 (Sonoma)** | Compatible (untested) |
 
 ## Prerequisites
+
+### One-Click Setup
+
+Run this command in Terminal to automatically install all dependencies:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zhouyeyu/NTFS4Mac/main/setup.sh | bash
+```
+
+### Manual Setup
 
 | Dependency | Purpose | Install |
 |---|---|---|
